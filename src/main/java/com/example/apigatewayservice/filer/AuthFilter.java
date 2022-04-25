@@ -14,17 +14,23 @@ import reactor.core.publisher.Mono;
 @Component
 public class AuthFilter implements GatewayFilter {
 
+    private final ValidateTokenService validateTokenService;
+
     @Autowired
-    private RestService restService;
+    public AuthFilter(ValidateTokenService validateTokenService) {
+        this.validateTokenService = validateTokenService;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 
         ServerHttpRequest request = exchange.getRequest();
 
+        // Проверка находится ли запрос в списке закрытых точек входа
         if (RouterValidator.isSecured.test(request)) {
 
-            if (this.isAuthMissing(request))
+            // Проверка есть ли у запроса авторизированный статус
+            if (!request.getHeaders().containsKey("Authorization"))
                 return this.onError(exchange, HttpStatus.NON_AUTHORITATIVE_INFORMATION);
 
             String authHeader;
@@ -37,11 +43,13 @@ public class AuthFilter implements GatewayFilter {
                 e.printStackTrace();
             }
 
+            // Проверка есть ли у запроса Bearer token
             if (parts != null && (parts.length != 2 || !"Bearer".equals(parts[0]))) {
                 return this.onError(exchange, HttpStatus.BAD_REQUEST);
             }
 
-            if (parts != null && restService.createPost(parts[1]).equals("false")) {
+            // Проверка на валидность токена в запросе
+            if (parts != null && validateTokenService.checkToken(parts[1]).equals("false")) {
                 return this.onError(exchange, HttpStatus.UNAUTHORIZED);
             }
         }
@@ -52,8 +60,5 @@ public class AuthFilter implements GatewayFilter {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(httpStatus);
         return response.setComplete();
-    }
-    private boolean isAuthMissing(ServerHttpRequest request) {
-        return !request.getHeaders().containsKey("Authorization");
     }
 }

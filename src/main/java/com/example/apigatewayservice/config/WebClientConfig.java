@@ -12,13 +12,18 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class WebClientConfig {
 
+    private final AuthFilter filter;
+
+    @Autowired
+    public WebClientConfig(AuthFilter filter) {
+        this.filter = filter;
+    }
+
     @Bean
     @LoadBalanced
     public WebClient.Builder loadBalancedWebClientBuilder() {
         return WebClient.builder();
     }
-    @Autowired
-    private AuthFilter filter;
 
     @Bean
     public RouteLocator routes(RouteLocatorBuilder builder) {
